@@ -1,0 +1,936 @@
+---
+title: "MDSCscript"
+author: "Dylan Ammons"
+date: "6/1/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+```{r Load in required packages}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(stringr)
+library(survival)
+library(survminer)
+library(reshape2)
+library(RColorBrewer)
+library(scales) #install.packages("scales")
+library(cowplot)
+```
+
+
+```{r Read in data}
+clinData <- read.csv(file = "../210811_clinDataForR.csv", header = TRUE)
+
+```
+
+```{r Convert "dates" to dates & do some math}
+colorz <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499","#44AA99", "#999933", "#6699CC", "#888888")
+
+#remove nani
+clinData <- clinData[!grepl("Nani", clinData$patient),]
+clinData <- clinData[!grepl("Lucy", clinData$patient),]
+
+#convert date to correct format
+convertDates<- colnames(clinData[,grep("date", colnames(clinData))])
+clinData[convertDates] <- lapply(clinData[convertDates], as.Date, format="%m/%d/%Y")
+
+#calculate age (years), time since diagnosis (days), and time since start of treatment (days)
+clinData$diag_age <- round(time_length(difftime(clinData$dateMRIdiag, clinData$dateob), "years"),2)
+
+clinData$dod_age <- round(time_length(difftime(clinData$dateod, clinData$dateob), "years"),2)
+
+clinData$date_fist_vac <- clinData$dateMRIdiag + clinData$daysFromDiatoVac
+
+clinData$daysToDeath <- round(time_length(difftime(clinData$dateod, clinData$date_fist_vac), "days"),2)
+
+
+#fix fiona
+clinData$daysToDeath[9] <- 770 #with Lucy and Nani removed
+
+clinData$daysToProg <- round(time_length(difftime(clinData$dateMRIprogression, clinData$date_fist_vac), "days"),2)
+
+#fix fiona & prokchop
+clinData$daysToProg[4] <- clinData$daysToDeath[4]
+#clinData$daysToProg[10] <- 770 #with nani removed
+clinData$daysToProg[9] <- 770 #with Lucy and Nani removed
+
+
+clinData$timeWithdraw <- round(time_length(difftime(clinData$dateWithdraw, clinData$date_fist_vac), "days"),2)
+
+#set status for humoral response
+clinData$hum <- c(1,1,2,1,2,1,2,2,2,2) #with Lucy and Nani removed
+
+#set status for whether or not the patient rcvd rad therapy
+clinData$rad <- c(1,1,1,1,1,1,2,2,1,1) #with Lucy and Nani removed
+
+#set status for whether or not the patient had prog disease
+clinData$progDis <- c(1,2,1,1,1,1,2,2,1,2) #with Lucy and Nani removed
+
+#note that fiona should be sensored due to continued alive
+clinData$fionaSense <- c(2,2,2,2,2,2,2,2,1,2) #with Lucy and Nani removed
+
+clinData$patNum <- factor(clinData$patNum, levels = c("1","2","3","4","5","6","7","8","9","10"))
+```
+
+```{r Generate OS & PFI curves will all patients (Fig_2)}
+#overall survival figure (A) 
+fit <- survfit(Surv(timeWithdraw, status) ~ 1, data = clinData)
+
+leg<- paste("All dogs (MST = ",round(summary(fit)$table['median'],0), ")", sep = "")
+
+p2 <- ggsurvplot(fit, data = clinData,
+                surv.median.line = "hv",
+                title = "Overall survival",
+                surv.scale = "percent",
+                palette = colorz,
+                conf.int = FALSE,
+                censor.shape = 124,
+                censor.size = 3,
+                size = 1,
+                xlab = "Time (days)",
+                ylab = "Survival probability (%)",
+                xlim = c(0, 800),
+                break.x.by = 200,
+                ylim = c(0, 1.005),
+                axes.offset = FALSE,
+                legend.title = "",
+                legend.labs = leg
+                )
+
+p2 <- p2 + theme_survminer(base_family = "serif",
+     font.main = c(14),
+     font.x = c(14),
+     font.y = c(14),
+     font.tickslab = c(12),
+     legend = c(0.6,0.90)
+)
+
+
+p2$plot <- p2$plot + theme(text = element_text(family="serif"),
+                           plot.margin=unit(c(0.1,1,0.1,0.1),"cm"),
+                           legend.text = element_text(size = 10, family = "serif"),
+                         legend.title = element_blank(),
+                         plot.title = element_text(hjust = 0.5),
+                           axis.line = element_line(colour = 'black', size = 0.5),
+                         legend.key.size = unit(0.5, "cm")
+)
+
+
+#PFI figure (B) 
+fit <- survfit(Surv(daysToProg, fionaSense) ~ 1, data = clinData)
+
+leg<- paste("All dogs (Median PFI = ",round(summary(fit)$table['median'],0), ")", sep = "")
+
+p4 <- ggsurvplot(fit, data = clinData,
+                surv.median.line = "hv",
+                title = "Progression free interval",
+                surv.scale = "percent",
+                palette = colorz,
+                conf.int = FALSE,
+                censor.shape = 124,
+                censor.size = 3,
+                size = 1,
+                xlab = "Time (days)",
+                ylab = "Progression free probability (%)",
+                xlim = c(0, 800),
+                break.x.by = 200,
+                ylim = c(0, 1.005),
+                axes.offset = FALSE,
+                legend.title = "",
+                legend.labs = leg,
+                )
+
+p4 <- p4 + theme_survminer(base_family = "serif",
+     font.main = c(14),
+     font.x = c(14),
+     font.y = c(14),
+     font.tickslab = c(12),
+     legend = c(0.6,0.90)
+)
+
+p4$plot <- p4$plot + theme(text = element_text(family="serif"),
+                           plot.margin=unit(c(0.1,1,0.1,0.1),"cm"),
+                           legend.text = element_text(size = 10, family = "serif"),
+                         legend.title = element_blank(),
+                         plot.title = element_text(hjust = 0.5),
+                           axis.line = element_line(colour = 'black', size = 0.5),
+                         legend.key.size = unit(0.5, "cm")
+)
+
+p <- plot_grid(p2$plot,p4$plot, 
+               ncol = 2,
+               labels = "AUTO",
+               label_size = 14,
+               hjust = 0,
+               vjust = 1,
+               label_fontfamily = "serif")
+
+ggsave(file = "../output/fig_2.png", width = 8, height = 4)
+```
+
+```{r Generate tumor growth curves (Fig_3)}
+
+#process vol data
+tumorVol <- clinData[,c(26:34)]
+tumorVol <- tumorVol %>% add_column(patID = clinData$patNum,
+             .before = "vol_0") 
+tumorVol <- melt(tumorVol, id.vars="patID")
+colnames(tumorVol) <- c("patID", "vol_time", "vol")
+
+#process date data
+tumorDate <- clinData[,c(35:43)]
+tumorDate <- tumorDate %>% add_column(patID = clinData$patNum,
+             .before = "date_0") 
+tumorDate <- melt(tumorDate, id.vars="patID")
+colnames(tumorDate) <- c("patID", "date_time", "date")
+
+
+#calculate elapsed time from date 0
+tumorDate <- tumorDate %>% 
+  group_by(patID) %>%
+  mutate(passTime = round(time_length(difftime(date, first(x = date)), "days"),2))
+
+#merge data
+growthCurves <- cbind(tumorVol,tumorDate[,2:4])
+
+growthCurves$vol <- as.numeric(growthCurves$vol)
+growthCurves$passTime <- as.numeric(growthCurves$passTime)
+
+#reorder data, so patient 4 is visible
+growthCurves <- growthCurves[c(1:3,5,6,7,8,9,10,4,11:nrow(growthCurves)), ]
+
+p <- ggplot(data = growthCurves, aes(x = passTime, y = vol, color = patID, fill = patID)) +
+  labs(x = "Time (days)", y = bquote('Tumor volume'~(cm^3))) +
+  geom_line(size = 1) + 
+  geom_point(size=3, shape = 21, color = "black") +
+  labs(colour="Patient", fill ="Patient") +
+  theme_classic() +
+  theme(text = element_text(family="serif"),
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 12),
+        axis.line = element_line(colour = 'black', size = 0.5),
+        axis.ticks = element_line(colour = 'black', size = 1),
+        plot.background = element_rect(fill = "transparent"),
+        panel.background = element_rect(fill = "transparent"),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14),
+        legend.key.size = unit(0.5, "cm")) +
+  scale_fill_manual(name = "Dog ID", values = colorz)+
+  scale_color_manual(name = "Dog ID", values = colorz)# add color to base spreadsheet
+
+ggsave(width = 5, height = 3, "../output/fig_3.png")
+```
+
+```{r Generate humoral titer figures (Fig_4)}
+
+#get data ready to plot
+cols <- append(colorz,colorz)
+
+humRes <- clinData[,c(44:47)]
+humRes <- humRes %>% add_column(patID = clinData$patNum,
+             .before = "pre_sph_titer")
+
+sphHumRes <- humRes[,c(1:3)]
+monoHumRes <- humRes[,c(1,4:5)]
+
+sphHumRes <- melt(sphHumRes, id.vars="patID")
+
+sphHumRes$cols <- cols
+
+#set dot spacing to avoid overlaps
+sphHumRes$x <- c(1,2,3,4,4.5,5,6,7,4.5,8,
+                 11,12,12,13,13,14,12,13,12,13)
+
+test_val <- t.test(value ~ variable, data = sphHumRes, paired = TRUE)
+
+p <- ggplot(data = sphHumRes, aes(x=x, y = value, fill = patID )) + 
+  geom_line(aes(group = patID),color = "black", size = 0.75) +
+  geom_point(size=4, shape = 21, color = "black") +
+  scale_y_continuous(trans = log2_trans(), limits = c(256,131072), n.breaks = 12) +
+  scale_fill_manual(name = "Dog ID", values = colorz) +
+    theme_classic() + 
+  ylab(label = "Endpoint titer (1:y)") +
+  xlab(label = "Sampling time") +
+  labs(fill='Patient') +
+  theme(text = element_text(family="serif"),
+        axis.title = element_text(size = 14, hjust = 0.6),
+        axis.text = element_text(size = 12),
+        axis.line = element_line(colour = 'black', size = 0.5),
+        axis.ticks = element_line(colour = 'black', size = 1),
+        #axis.ticks.x = element_blank(),
+        plot.background = element_rect(fill = "transparent"),
+        panel.background = element_rect(fill = "transparent"),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14),
+        legend.key.size = unit(0.5, "cm")
+        ) + 
+  scale_x_continuous(breaks = c(4.5,12.5),
+                     labels = c("Pre","Post"))
+
+ggsave(width = 4.5, height = 4.5, "../output/fig_4_lines.png")
+```
+
+```{r Generate humoral survival (& PFI) curves comparing responders to non-responders (Fig_5)}
+
+#overall survival figure (A) comparing humoral responses
+fit <- survfit(Surv(timeWithdraw, status) ~ hum, data = clinData)
+
+nonRepond<- paste("Non-responder (MST = ",round(summary(fit)$table[,'median'][1],0), ")", sep = "")
+repond<- paste("Responder (MST = ",round(summary(fit)$table[,'median'][2],0), ")", sep = "")
+
+p1 <- ggsurvplot(fit, data = clinData,
+                pval = TRUE,
+                surv.median.line = "hv",
+                title = "Overall survival",
+                surv.scale = "percent",
+                palette = colorz,
+                censor.shape = 124,
+                censor.size = 3,
+                size = 1,
+                xlab = "Time (days)",
+                ylab = "Survival probability (%)",
+                legend.title = "Humoral status",
+                legend.labs = c(nonRepond, repond),
+                xlim = c(0, 800),
+                break.x.by = 200,
+                ylim = c(0, 1.005),
+                axes.offset = FALSE,
+                pval.coord = c(625,0.08),
+                pval.size = 4,
+                font.family = "serif"
+                )
+
+p1 <- p1 + theme_survminer(base_family = "serif",
+     font.main = c(14),
+     font.x = c(14),
+     font.y = c(14),
+     font.tickslab = c(12),
+     legend = c(0.6,0.95)
+)
+
+p1$plot <- p1$plot + theme(text = element_text(family="serif"),
+                           plot.margin=unit(c(0.1,1,0.1,0.1),"cm"),
+                           legend.text = element_text(size = 10, family = "serif"),
+                         legend.title = element_blank(),
+                           axis.line = element_line(colour = 'black', size = 1),
+                         legend.key.size = unit(0.5, "cm")
+)
+
+#PFI figure (B) comparing humoral responses
+fit <- survfit(Surv(daysToProg, fionaSense) ~ hum, data = clinData)
+
+nonRepond<- paste("Non-responder (mPFI = ",round(summary(fit)$table[,'median'][1],0), ")", sep = "")
+repond<- paste("Responder (mPFI = ",round(summary(fit)$table[,'median'][2],0), ")", sep = "")
+
+p2 <- ggsurvplot(fit, data = clinData, #risk.table = TRUE,
+                pval = TRUE, #conf.int = TRUE,
+                pval.coord = c(625, 0.08),
+                surv.median.line = "hv",
+                title = "Progression free interval",
+                #submain = "based on Kaplan-Meier estimates",
+                surv.scale = "percent",
+                palette = colorz,
+                censor.shape = 124,
+                censor.size = 3,
+                size = 1,
+                xlab = "Time (days)",
+                ylab = "Progression free survival probability (%)",
+                legend.title = "Humoral status",
+                legend.labs = c(nonRepond, repond),
+                xlim = c(0, 800),
+                break.x.by = 200,
+                ylim = c(0, 1.005),
+                axes.offset = FALSE,
+                pval.size = 4,
+                font.family = "serif"
+                )
+
+p2 <- p2 + theme_survminer(base_family = "serif",
+     font.main = c(14),
+     font.x = c(14),
+     font.y = c(14),
+     font.tickslab = c(12),
+     legend = c(0.6,0.75)
+)
+
+p2$plot <- p2$plot + theme(text = element_text(family="serif"),
+                           plot.margin=unit(c(0.1,1,0.1,0.1),"cm"),
+                           legend.text = element_text(size = 10, family = "serif"),
+                         legend.title = element_blank(),
+                           axis.line = element_line(colour = 'black', size = 1),
+                         legend.key.size = unit(0.5, "cm")
+)
+
+p <- plot_grid(p1$plot,p2$plot, 
+               ncol = 2,
+               labels = "AUTO",
+               label_size = 14,
+               hjust = 0,
+               vjust = 1,
+               label_fontfamily = "serif")
+
+ggsave(file = "../output/fig_5.png", width = 8, height = 4)
+
+```
+
+```{r Generate IHC t-test 2 (Fig_6)}
+
+#read in the data
+fig6 <- read.csv(file = "../immuneInfiltrates_2_R.csv", header = TRUE)
+fig6_cd3 <- fig6[fig6$label == "cd3",]
+fig6_mac <- fig6[fig6$label == "mac387",]
+
+#plot the data
+test_val <- t.test(pct ~ status, data = fig6_cd3, paired = FALSE)
+
+p1 <- ggplot(data = fig6_cd3, aes(x=status, y = pct, fill = status )) + 
+  #geom_line(aes(group = patID),color = "black", size = 1) +
+  stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), geom="errorbar",  width=0.2, size = 1) +
+  stat_summary(shape=18, fun ="mean",color="black", geom="point", size=4, show.legend = FALSE) +
+  geom_point(size=2, shape = 21, color = "black", position = position_jitterdodge(dodge.width=1, jitter.width = 0.25, seed = 2)) +
+  #geom_jitter(size=2, shape = 21, color = "black",width = 0.1) + 
+  ggtitle("T cell infiltrates") + 
+  #geom_point(size=10, shape = 21, color = "black") +
+  scale_fill_manual(values = colorz) +
+  scale_x_discrete(label = c("Untreated","Vaccinated")) + 
+  scale_y_continuous(limits = c(-125,800), breaks = c(0,200,400,600,800)) + 
+  theme_classic() + 
+  ylab(label = bquote(~CD3^+' '*'cells per'~mm^2)) +
+  xlab(label = "Treatment status") +
+  labs(fill='Patient ID') +
+  theme(text = element_text(family="serif"),
+        plot.title = element_text(size = 14, hjust = 0.5),
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 12),
+        axis.title.x = element_blank(),
+        axis.line = element_line(colour = 'black', size = 0.5),
+        axis.ticks = element_line(colour = 'black', size = 1),
+        plot.background = element_rect(fill = "transparent"),
+        panel.background = element_rect(fill = "transparent"),
+        legend.position= "none"
+        ) + 
+  geom_bracket(data = fig6_cd3, aes(x=status, y = pct), xmin = "untreated", xmax = "vaccinated", y.position = 785,
+    label = paste0('p-val = ',round(test_val$p.value,3), sep = ''),
+    colour = "blue", family = "serif") +
+  geom_hline(yintercept = 0,linetype="dashed")
+
+
+
+test_val <- t.test(pct ~ status, data = fig6_mac, paired = FALSE)
+
+p2 <- ggplot(data = fig6_mac, aes(x=status, y = pct, fill = status, shape = status )) + 
+  #geom_line(aes(group = patID),color = "black", size = 1) +
+  stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), geom="errorbar",  width=0.2, size = 1) +
+  stat_summary(shape=18, fun ="mean",color="black", geom="point", size=4, show.legend = FALSE) +
+  geom_point(size=2, color = "black", position = position_jitterdodge(dodge.width=1, jitter.width = 0.25, seed = 2)) +
+  scale_shape_manual(values = c(21,22)) +
+  #geom_jitter(size=2, shape = 21, color = "black",width = 0.1) + 
+  ggtitle("Macrophage infiltrates") + 
+  #geom_point(size=10, shape = 21, color = "black") +
+  scale_fill_manual(values = colorz) +
+  scale_x_discrete(label = c("Untreated","Vaccinated")) + 
+  scale_y_continuous(limits = c(-125,800), breaks = c(0,200,400,600,800)) + 
+  theme_classic() + 
+  ylab(label = bquote(~MAC387^+' '*'cells per'~mm^2)) +
+  xlab(label = "Treatment status") +
+  labs(fill='Patient ID') +
+  theme(text = element_text(family="serif"),
+        plot.title = element_text(size = 14,hjust = 0.5),
+        axis.title = element_text(size = 14),
+        axis.title.x = element_blank(),
+        axis.text = element_text(size = 12),
+        axis.line = element_line(colour = 'black', size = 0.5),
+        axis.ticks = element_line(colour = 'black', size = 1),
+        plot.background = element_rect(fill = "transparent"),
+        panel.background = element_rect(fill = "transparent"),
+        legend.position= "none"
+        ) + 
+  geom_bracket(data = fig6_cd3, aes(x=status, y = pct), xmin = "untreated", xmax = "vaccinated", y.position = 585,
+    label = paste0('p-val = ',round(test_val$p.value,3), sep = ''),
+    colour = "blue", family = "serif") +
+  geom_hline(yintercept = 0,linetype="dashed")
+
+p <- plot_grid(p1,p2, 
+               ncol = 2,
+               labels = "AUTO",
+               label_size = 14,
+               rel_widths = c(1, 1),
+               hjust = 0,
+               vjust = 1,
+               label_fontfamily = "serif")
+p
+ggsave(width = 6, height = 3,"../output/fig_6.png")
+```
+
+```{r Generate CSC marker plots (Sup_1)}
+
+#read in the data
+sup_1 <- read.csv(file = "../220120_amg_flow_data.csv", header = TRUE)
+
+#select data of interest
+sup_1_cd44 <- sup_1[sup_1$marker == "CD44",]
+
+#plot the data
+p <- ggplot(data = sup_1_cd44, aes(x = cellLine, y = val, fill = culture)) + geom_bar(stat='identity', position=position_dodge()) + ggtitle("CD44 expression") +
+  scale_fill_manual(values = c("#88CCEE", "#CC6677")) +
+  scale_y_continuous(limits = c(0,1500), n.breaks = 4, expand = c(0,0)) + 
+    theme_classic() + 
+  ylab(label = "geometric Mean Fluorescence Intensity (gMFI) ") +
+  labs(fill='Culture') +
+  theme(text = element_text(family="serif"),
+        plot.title = element_text(size = 14, hjust = 0.5),
+        axis.title.y = element_text(size = 14),
+        axis.title.x = element_blank(),
+        axis.text = element_text(size = 12),
+        axis.line = element_line(colour = 'black', size = 0.5),
+        axis.ticks = element_line(colour = 'black', size = 1),
+        plot.background = element_rect(fill = "transparent"),
+        panel.background = element_rect(fill = "transparent"),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14),
+        legend.key.size = unit(0.5, "cm"),
+        )
+
+ggsave(width = 5, height = 4,"../output/sup_1.png")
+```
+
+```{r Generate monolayer humoral titer figures (Sup_2)}
+
+#prepare the data
+colorz_mono <- colorz[c(2,3,4,5)]
+cols <- append(colorz_mono, colorz_mono)
+
+humRes <- clinData[,c(44:47)]
+humRes <- humRes %>% add_column(patID = clinData$patNum,
+             .before = "pre_sph_titer")
+
+monoHumRes <- humRes[,c(1,4:5)]
+monoHumRes <- melt(monoHumRes, id.vars="patID")
+monoHumRes$value <- as.integer(monoHumRes$value)
+monoHumRes <- subset(monoHumRes, !is.na(value))
+monoHumRes$col <- cols
+
+#set dot location to avoid overlap
+monoHumRes$x <- c(3,4,5,4,
+                  8,9,10,11)
+
+#plot the data
+test_val <- t.test(value ~ variable, data = monoHumRes, paired = TRUE)
+
+p1 <- ggplot(data = monoHumRes, aes(x=x, y = value, fill = patID )) + 
+  #geom_line(aes(group = patID),color = "black", size = 1) +
+  geom_point(size=3, shape = 21, color = "black") +
+  scale_y_continuous(trans = log2_trans(), limits = c(256,32768), n.breaks = 10) +
+  scale_fill_manual(name = "Dog ID", values = monoHumRes$col) +
+    theme_classic() + 
+  ylab(label = "Endpoint titer (1:y)") +
+  xlab(label = "Sampling time") +
+  labs(fill='Patient') +
+  theme(text = element_text(family="serif"),
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 12),
+        axis.line = element_line(colour = 'black', size = 0.5),
+        axis.ticks.y = element_line(colour = 'black', size = 1),
+        axis.ticks.x = element_blank(),
+        plot.background = element_rect(fill = "transparent"),
+        panel.background = element_rect(fill = "transparent"),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14),
+        legend.key.size = unit(0.5, "cm")#,
+        #legend.justification = "top"
+        ) + 
+  scale_x_continuous(breaks = c(4,9.5),
+                     labels = c("Pre","Post"),
+                     limits = c(1,13))
+
+#read in data
+sup2b <- read.csv(file = "../220104_tp_titers_R.csv", header = TRUE)
+sup2b$titer <- as.numeric(sup2b$titer)
+sup2b$month <- as.numeric(sup2b$month)
+sup2b$patNum <- as.character(sup2b$patNum)
+sup2b$patNum <- factor(sup2b$patNum, levels = c("3","5","7","9","10"))
+sup2b$x <- sup2b$month + sup2b$jitter
+
+colorz_tp <- colorz[c(3,5,7,9,10)]
+
+#plot the data
+p2 <- ggplot(data = sup2b, aes(x=x, y = titer, fill = patNum, color = patNum)) +
+  geom_line(size = 1) + 
+  geom_point(size=3, shape = 21, color = "black") +
+  #geom_jitter(size=5, shape = 21, color = "black", height = 0, width = 0.2) +
+  labs(colour="Patient", fill ="Patient") +
+  scale_y_continuous(trans = log2_trans(), limits = c(1024,524288), n.breaks = 12) +
+  scale_x_continuous(limits = c(-0.5,15),breaks = c(0,3,6,9,12,15)) +
+  scale_fill_manual(name = "Dog ID", values = colorz_tp) +
+  scale_color_manual(name = "Dog ID", values = colorz_tp) +
+  theme_classic() + 
+  ylab(label = "Endpoint titer (1:y)") +
+  xlab(label = "Sampling time (months)") +
+  theme(text = element_text(family="serif"),
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 12),
+        axis.line = element_line(colour = 'black', size = 0.5),
+        axis.ticks = element_line(colour = 'black', size = 1),
+        plot.background = element_rect(fill = "transparent"),
+        panel.background = element_rect(fill = "transparent"),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14),
+        legend.key.size = unit(0.5, "cm")
+        )
+
+p <- plot_grid(p1,p2, 
+               ncol = 2,
+               labels = "AUTO",
+               label_size = 14,
+               rel_widths = c(1, 2),
+               hjust = 0,
+               vjust = 1,
+               label_fontfamily = "serif")
+
+ggsave(width = 10, height = 4,"../output/sup_2.png")
+```
+
+```{r Generate objective response t-test (Sup_5)}
+
+test_val <- t.test(peak_response_2 ~ as.character(hum), data = clinData, paired = FALSE)
+
+p <- ggplot(data = clinData, aes(x=as.character(hum), y = peak_response_2, fill = patNum )) + 
+  #geom_line(aes(group = patID),color = "black", size = 1) +
+  #geom_jitter(size=5, shape = 21, color = "black",width = 0.05) + 
+  ggtitle("Objective Response") + 
+  geom_point(size=3, shape = 21, color = "black") +
+  scale_fill_manual(name = "Dog ID", values = colorz) +
+  scale_x_discrete(label = c("Non-responder","Responder")) + 
+  scale_y_continuous(limits = c(-100,50), n.breaks = 4) + 
+    theme_classic() + 
+  ylab(label = "Maximal tumor volume reduction (%) ") +
+  xlab(label = "Humoral status") +
+  labs(fill='Patient') +
+  theme(text = element_text(family="serif"),
+        plot.title = element_text(size = 14, hjust = 0.5),
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 12),
+        axis.line = element_line(colour = 'black', size = 0.5),
+        axis.ticks.y = element_line(colour = 'black', size = 1),
+        axis.ticks.x = element_blank(),
+        plot.background = element_rect(fill = "transparent"),
+        panel.background = element_rect(fill = "transparent"),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14),
+        legend.key.size = unit(0.5, "cm"),
+        ) + geom_bracket(data = clinData, aes(x=as.character(hum), y = peak_response_2), xmin = 1, xmax = 2, y.position = 50, tip.length = c(.025, .4),
+    label = paste0('p-val = ',round(test_val$p.value,3), sep = ''),
+    colour = "blue", family = "serif") +
+      stat_summary(data = clinData, aes(fill = as.character(hum)), fun.data=mean_sdl, fun.args = list(mult=1), geom="errorbar",  width=0.2, size = 1) +
+  stat_summary(shape=18, aes(fill = as.character(hum)),fun ="mean",color="black", geom="point", size=4, show.legend = FALSE) +
+  geom_hline(yintercept = 0,linetype="dashed")
+
+p$layers[6] <- p$layers[1]
+p$layers[1] <- NULL
+p
+
+ggsave(width = 4.5, height = 4.5, "../output/sup_5.png")
+```
+
+```{r Univariate analysis (Sup_table_3_data)}
+
+#set up data for univariate analysis
+clinData$hum <- factor(clinData$hum, 
+                     levels = c("1", "2"), 
+                     labels = c("N", "R"))
+clinData$trial <- factor(clinData$trial, 
+                           levels = c("1", "2"), 
+                           labels = c("1A", "1B"))
+clinData$grade <- factor(clinData$grade, 
+                           levels = c("high", "low"), 
+                           labels = c("high", "low"))
+clinData$rad <- factor(clinData$rad, 
+                           levels = c("1", "2"), 
+                           labels = c("no", "yes"))
+clinData$sex_2 <- c(1,2,1,2,2,1,2,2,1,2)
+clinData$sex_2 <- factor(clinData$sex_2, 
+                           levels = c("1", "2"), 
+                           labels = c("Female", "Male"))
+clinData$breed <- c(2,1,1,1,1,2,1,2,1,1)
+clinData$breed <- factor(clinData$breed, 
+                           levels = c("1", "2"), 
+                           labels = c("Brachiocephalic", "Non-brachiocephalic")
+                         )
+
+fit.coxph <- coxph(Surv(timeWithdraw, status) ~ hum, data = clinData)
+
+### CHECK ASSUMPTIONS ###
+
+test.ph <- cox.zph(fit.coxph)
+test.ph
+
+ggcoxzph(test.ph)
+
+###
+
+#################################
+
+covariates <- c("hum", "trial",  "rad", "grade", "breed", "sex_2")
+univ_formulas <- sapply(covariates,
+                        function(x) as.formula(paste('Surv(timeWithdraw, status)~', x)))
+                        
+
+univ_models <- lapply(univ_formulas, function(x){coxph(x, data = clinData)})
+
+# Extract data 
+univ_results <- lapply(univ_models,
+                       function(x){ 
+                                x <- summary(x)
+                                p.value <- signif(x$sctest["pvalue"], digits=2)
+                                lik.test <- signif(x$sctest["test"], digits=2)
+                                beta <- signif(x$coef[1], digits=2);#coeficient beta
+                                HR <- signif(x$coef[2], digits=2);#exp(beta)
+                                HR.confint.lower <- signif(x$conf.int[,"lower .95"], 2)
+                                HR.confint.upper <- signif(x$conf.int[,"upper .95"],2)
+                                HR <- paste0(HR, " (", 
+                                      HR.confint.lower, "-", HR.confint.upper, ")")
+                                res <- c(beta, HR, lik.test, p.value)
+                                names(res) <- c("beta", "HR (95% CI for HR)", "lik.test", "p.value")
+                                return(res)
+                               })
+                               
+
+res <- t(as.data.frame(univ_results, check.names = FALSE))
+cox_res <- as.data.frame(res)
+write.csv(cox_res, file = "../output/test_data.csv")
+
+#####################################
+
+
+covariates <- c("hum", "trial",  "rad", "grade", "breed", "sex_2")
+univ_formulas <- sapply(covariates,
+                        function(x) as.formula(paste('Surv(timeWithdraw, status)~', x)))
+                        
+univ_models <- lapply(univ_formulas, function(x){survfit(x, data = clinData)})
+
+# Extract data 
+univ_results <- lapply(univ_models,
+                       function(x){
+                               
+                               x <- summary(x)
+                               res <- x$table[,c("records", "median")]
+                        return(res)
+                       })
+write.csv(univ_results, file = "../output/med_n.csv")
+
+
+res <- t(as.data.frame(univ_results, check.names = FALSE))
+surv_res <- as.data.frame(res)
+surv_res
+
+#####################################
+
+
+```
+
+```{r NanoString}
+
+#load in libraries for supplemental data analysis
+library(stringr)
+library(DESeq2)
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(ggrepel)
+library(ReactomePA)
+
+#read in data
+nano <- read.csv("../nanostring/Normalized_n18_batched.csv")
+meta <- read.csv("../nanostring/meta.csv")
+
+#meta <- meta[-1,]
+
+#clean data
+genes <- nano[,1]
+nano <- nano[,c(11:20,22:29)]
+colnames(nano) <- c(meta$name)
+nano <- as.data.frame(lapply(nano, as.integer))
+meta <- as.data.frame(lapply(meta, as.factor))
+rownames(nano) <- genes
+
+#convert to DEseq2 object
+dds <- DESeqDataSetFromMatrix(countData = nano,
+                              colData = meta,
+                              design= ~ batch + status)
+
+dds <- DESeqDataSetFromMatrix(countData = nano,
+                              colData = meta,
+                              design= ~ batch + type)
+
+dds <- DESeqDataSetFromMatrix(countData = nano,
+                              colData = meta,
+                              design= ~ batch + grade)
+
+dds <- DESeqDataSetFromMatrix(countData = nano,
+                              colData = meta,
+                              design= ~ batch + sex)
+
+dds <- DESeq(dds)
+
+
+resName <- resultsNames(dds)
+#res <- lapply(resName, function(x) results(dds, name = x))
+res <- results(dds, name = resName[3])
+res <- results(dds, name = resName[3], pAdjustMethod = "none", alpha = 0.05, lfcThreshold = 0.58)
+#lapply(res, summary)
+summary(res)
+res
+
+resLFC <- lfcShrink(dds, coef = resName[3])
+
+forPca <- DESeqTransform(dds)
+
+plotPCA(forPca, intgroup = "status", ntop = 500, returnData = FALSE)
+
+plotMA(res, ylim=c(-2,2))
+plotMA(resLFC, ylim=c(-2,2))
+
+summary(res)
+
+plot <- as.data.frame(resLFC)
+plot$gene <- rownames(plot)
+
+res_table_thres <- plot %>% 
+                  mutate(threshold = ifelse(pvalue < 0.1 & abs(log2FoldChange) >= 0.58, 
+                                            ifelse(log2FoldChange > 0.58 ,'Up','Down'),'Stable'),
+                         label = ifelse(threshold == 'Up' | threshold == 'Down', gene, NA)
+                         )
+
+res_table_thres <- res_table_thres[!is.na(res_table_thres$padj),]
+
+p <- ggplot(data = res_table_thres, 
+            aes(x = log2FoldChange, 
+                y = -log10(pvalue), 
+                colour = threshold)) +
+  geom_vline(xintercept = c(-0.58,0.58), lty = 4, col="black", lwd = 0.8) +
+  geom_hline(yintercept = -log10(0.1), lty = 4, col="black", lwd = 0.8) +
+  geom_point(alpha = 0.4, size = 3.5) +
+  geom_label_repel(max.overlaps = Inf, size=3, label = res_table_thres$label, show.legend = FALSE) +
+  scale_color_manual(values=c("blue", "grey","red")) +
+  xlim(c(-2.5, 2.5)) +
+  #ylim(c(0, 3)) +
+  labs(x="log2(fold change)",
+       y="-log10(padj)",
+       title="Differential expression (High vs low grade)") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), 
+        legend.position = "right", 
+        legend.title = element_blank())
+p
+
+ggsave(width = 8, height = 5, "../output/sup_6a.png")
+
+
+resOrdered <- res[order(res$pvalue),]
+
+resFilter<- as.data.frame(subset(res, padj < 0.1))
+
+resFilter<- as.data.frame(subset(resFilter, log2FoldChange > 0))
+
+geneList <- read.csv(file = "../output/geneList.csv", header = FALSE)
+
+pathAnalysis <- enrichPathway(gene = geneList$V2, pvalueCutoff = 0.05)
+dotplot(pathAnalysis)
+ggsave(width = 10, height = 5, "../output/sup_6b.png")
+
+
+
+############
+
+fig_sup_6 <- read.csv(file = "../immuneInfiltrates_2_R.csv", header = TRUE)
+fig_sup_6 <- fig_sup_6 %>% left_join(meta, by = c("id" = "f_id"))
+fig6_sup_cd3 <- fig_sup_6[fig_sup_6$label == "cd3",]
+fig6_sup_mac <- fig_sup_6[fig_sup_6$label == "mac387",]
+
+#plot the data
+test_val <- t.test(pct ~ grade, data = fig6_sup_cd3, paired = FALSE)
+
+p1 <- ggplot(data = fig6_sup_cd3, aes(x=grade, y = pct, fill = grade )) + 
+  #geom_line(aes(group = patID),color = "black", size = 1) +
+  stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), geom="errorbar",  width=0.2, size = 1) +
+  stat_summary(shape=18, fun ="mean",color="black", geom="point", size=4, show.legend = FALSE) +
+  geom_point(size=2, shape = 21, color = "black", position = position_jitterdodge(dodge.width=1, jitter.width = 0.25, seed = 2)) +
+  #geom_jitter(size=2, shape = 21, color = "black",width = 0.1) + 
+  ggtitle("T cell infiltrates") + 
+  #geom_point(size=10, shape = 21, color = "black") +
+  scale_fill_manual(values = colorz) +
+  scale_x_discrete(label = c("Low","High")) + 
+  scale_y_continuous(limits = c(-150,800), breaks = c(0,200,400,600,800)) + 
+  theme_classic() + 
+  ylab(label = bquote(~CD3^+' '*'cells per'~mm^2)) +
+  xlab(label = "Tumor grade") +
+  labs(fill='Patient ID') +
+  theme(text = element_text(family="serif"),
+        plot.title = element_text(size = 14, hjust = 0.5),
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 12),
+        axis.title.x = element_blank(),
+        axis.line = element_line(colour = 'black', size = 0.5),
+        axis.ticks = element_line(colour = 'black', size = 1),
+        plot.background = element_rect(fill = "transparent"),
+        panel.background = element_rect(fill = "transparent"),
+        legend.position= "none"
+        ) + 
+  geom_bracket(data = fig6_sup_cd3, aes(x=grade, y = pct), xmin = "alow", xmax = "bhigh", y.position = 785,
+    label = paste0('p-val = ',round(test_val$p.value,3), sep = ''),
+    colour = "blue", family = "serif") +
+  geom_hline(yintercept = 0,linetype="dashed")
+
+test_val <- t.test(pct ~ grade, data = fig6_sup_mac, paired = FALSE)
+
+p2 <- ggplot(data = fig6_sup_mac, aes(x=grade, y = pct, fill = grade, shape = grade )) + 
+  #geom_line(aes(group = patID),color = "black", size = 1) +
+  stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), geom="errorbar",  width=0.2, size = 1) +
+  stat_summary(shape=18, fun ="mean",color="black", geom="point", size=4, show.legend = FALSE) +
+  geom_point(size=2, color = "black", position = position_jitterdodge(dodge.width=1, jitter.width = 0.25, seed = 2)) +
+  scale_shape_manual(values = c(21,22)) +
+  #geom_jitter(size=2, shape = 21, color = "black",width = 0.1) + 
+  ggtitle("Macrophage infiltrates") + 
+  #geom_point(size=10, shape = 21, color = "black") +
+  scale_fill_manual(values = colorz) +
+  scale_x_discrete(label = c("Low","High")) + 
+  scale_y_continuous(limits = c(-150,800), breaks = c(0,200,400,600,800)) + 
+  theme_classic() + 
+  ylab(label = bquote(~MAC387^+' '*'cells per'~mm^2)) +
+  xlab(label = "Tumor grade") +
+  labs(fill='Patient ID') +
+  theme(text = element_text(family="serif"),
+        plot.title = element_text(size = 14,hjust = 0.5),
+        axis.title = element_text(size = 14),
+        axis.title.x = element_blank(),
+        axis.text = element_text(size = 12),
+        axis.line = element_line(colour = 'black', size = 0.5),
+        axis.ticks = element_line(colour = 'black', size = 1),
+        plot.background = element_rect(fill = "transparent"),
+        panel.background = element_rect(fill = "transparent"),
+        legend.position= "none"
+        ) + 
+  geom_bracket(data = fig6_sup_mac, aes(x=grade, y = pct), xmin = "alow", xmax = "bhigh", y.position = 585,
+    label = paste0('p-val = ',round(test_val$p.value,3), sep = ''),
+    colour = "blue", family = "serif") +
+  geom_hline(yintercept = 0,linetype="dashed")
+
+p <- plot_grid(p1,p2, 
+               ncol = 2,
+               labels = "AUTO",
+               label_size = 14,
+               rel_widths = c(1, 1),
+               hjust = 0,
+               vjust = 1,
+               label_fontfamily = "serif")
+p
+ggsave(width = 6, height = 3,"../output/fig_6_sup.png")
+
+```
