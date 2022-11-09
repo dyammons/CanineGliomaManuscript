@@ -15,7 +15,7 @@ __meta.csv__ - metadata used for NanoString analysis. Patient signalment, batch,
 
 __Normalized_n18_batched.csv__ - processed NanoString data obtained by running raw nSolver data through nCounter software. Values provided are normalized counts for each feature.
 
-__geneList.csv__ - list of hgnc_symbol and description from ensembl database for the features identified as upregulated when comparing gene expression between high- and low-grade gliomas. This is loaded in as a .csv to avoid any potential connection errors with BioMart/Ensembl, but the code is provided in a noted-out section (lines 801-804 if you wish to run the code).
+__geneList.csv__ - list of hgnc_symbol and description from ensembl database for the features identified as upregulated when comparing gene expression between high- and low-grade gliomas. This is loaded in as a .csv to avoid any potential connection errors with BioMart/Ensembl, but the code is provided in a noted-out section.
 
 ### Script
 
