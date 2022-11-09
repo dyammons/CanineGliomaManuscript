@@ -1,5 +1,5 @@
 # CanineGliomaManuscript
-This page provides the analysis code used for the paper entitled, "Reprogramming the Canine Glioma Microenvironment with Tumor Vaccination plus Oral Losartan and Propranolol Induces Objective Responses."
+This page provides the analysis code used for the paper entitled, "Reprogramming the Canine Glioma Microenvironment with Tumor Vaccination plus Oral Losartan and Propranolol Induces Objective Responses." There is an associated Code Ocean capsule for an efficient reproducible run.
 
 ### Data files (Input)
 
