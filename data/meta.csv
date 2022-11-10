@@ -1,0 +1,19 @@
+sample,f_id,status,sex,type,grade,breed,patID,name,batch
+20220412_209753990323_F12-82408-6_05.RCC,F12-82408,control,MC,Undefined,bhigh,Vizsla superbreed,NA,ctrl_01,1
+20220412_209753990323_F13-28768-1_02.RCC,F13-28768,control,M,Oligodendroglioma,bhigh,English Bulldog,NA,ctrl_02,1
+20220412_209753990323_F13-78109-1_09.RCC,F13-78109,control,FS,Oligodendroglioma,bhigh,Golden Retriever,NA,ctrl_03,1
+20220412_209753990323_F13-82836-4_04.RCC,F13-82836,control,MC,Oligodendroglioma,bhigh,English Bulldog,NA,ctrl_04,1
+20220412_209753990323_F14-08645-3_01.RCC,F14-08645,control,NA,Oligodendroglioma,bhigh,Boxer,NA,ctrl_05,1
+20220412_209753990323_F14-10362-3_03.RCC,F14-10362,control,NA,Oligodendroglioma,bhigh,Boxer,NA,ctrl_06,1
+20220412_209753990323_F15-41499-1_10.RCC,F15-41499,control,NA,Astrocytoma,alow,American Bulldog,NA,ctrl_07,1
+20220412_209753990323_F15-85066-4_06.RCC,F15-85066,control,MC,Astrocytoma/Oligodenroglioma,alow,Labrador Retriever,NA,ctrl_08,1
+20220412_209753990323_F16-0040-1_11.RCC,F16-00040,control,MC,Oligodendroglioma/Undefined,alow,Golden Retriever,NA,ctrl_09,1
+20220412_209753990323_F16-5220-1_08.RCC,F16-05220,control,MC,Oligodendroglioma,alow,Brittany,NA,ctrl_10,1
+20220412_209753990323_f14-07689-1_07.RCC,F14-07689,control,NA,Oligodendroglioma,bhigh,Mixed,NA,ctrl_11,1
+20220421_209754330323_089-62574_11.RCC,089-62574,control,FS,Undefined,alow,Labrador Retriever,NA,ctrl_12,2
+20220421_209754330323_089-79521_10.RCC,089-79521,control,FS,Oligodendroglioma,alow,Boston Terrier,NA,ctrl_13,2
+20220421_209754330323_F16-2154-3_12.RCC,F16-02154,control,NA,Oligodendroglioma,alow,Golden Retriever/Australian shepard,NA,ctrl_14,2
+20220421_209754330323_F18-16288-6-8_04.RCC,F18-16288,treated,M,Astrocytoma,alow,Boxer,333527,treated_01,2
+20220421_209754330323_F18-32890-3-4_03.RCC,F18-32890,treated,FS,Oligodendroglioma,bhigh,Labrador Retriever,332677,treated_02,2
+20220421_209754330323_F19-48098-1-2_02.RCC,F19-48098,treated,FS,Oligodendroglioma,bhigh,Mixed,353324,treated_03,2
+20220421_209754330323_F19-48476-1-2_01.RCC,F19-48476,treated,FS,Oligodendroglioma,alow,Boxer,341925,treated_04,2
