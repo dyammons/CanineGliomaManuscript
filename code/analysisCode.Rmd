@@ -12,7 +12,6 @@ knitr::opts_chunk$set(echo = TRUE)
 ## R Markdown
 ```{r Load in required packages}
 library(tidyverse)
-library(dplyr)
 library(ggplot2)
 library(lubridate)
 library(stringr)
@@ -27,8 +26,6 @@ library(cowplot)
 
 
 ```{r Read in data}
-#clinData <- read.csv(file = "../data/210811_clinDataForR.csv", header = TRUE)
-#clinData <- read.csv(file = "../data/220801_clinDataForR.csv", header = TRUE)
 clinData <- read.csv(file = "../data/220926_clinDataForR.csv", header = TRUE)
 
 colorz <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499","#44AA99", "#999933", "#6699CC", "#888888")
@@ -179,9 +176,7 @@ tumorVol <- melt(tumorVol, id.vars="patID")
 colnames(tumorVol) <- c("patID", "vol_time", "vol")
 
 #process date data
-
 tumorDatetoClean <- clinData[,c(17,34:42)]
-
 
 data.cleaned <- by(tumorDatetoClean, seq_len(nrow(tumorDatetoClean)), function(row){
   test <- row[1]#tumorDate[row,1]
@@ -219,6 +214,7 @@ growthCurves$passTime <- as.numeric(growthCurves$passTime)
 #reorder data, so patient 4 is visible
 growthCurves <- growthCurves[c(1:3,5,6,7,8,9,10,4,11:nrow(growthCurves)), ]
 
+#plot the data
 p <- ggplot(data = growthCurves, aes(x = passTime, y = vol, color = patID, fill = patID)) +
   labs(x = "Time (days)", y = bquote('Tumor volume'~(cm^3))) +
   geom_line(size = 1) + 
@@ -238,6 +234,7 @@ p <- ggplot(data = growthCurves, aes(x = passTime, y = vol, color = patID, fill 
   scale_fill_manual(name = "Dog ID", values = colorz)+
   scale_color_manual(name = "Dog ID", values = colorz)# add color to base spreadsheet
 p
+
 ggsave(width = 5, height = 3, "../results/fig_2_C.png")
 ```
 
@@ -263,6 +260,7 @@ sphHumRes$x <- c(1,2,3,4,4.5,5,6,7,4.5,8,
 
 test_val <- wilcox.test(value ~ variable, data = sphHumRes, paired = TRUE)
 
+#plot the data
 p <- ggplot(data = sphHumRes, aes(x=x, y = value, fill = patID )) + 
   geom_line(aes(group = patID),color = "black", size = 0.75) +
   geom_point(size=4, shape = 21, color = "black") +
@@ -287,6 +285,7 @@ p <- ggplot(data = sphHumRes, aes(x=x, y = value, fill = patID )) +
   scale_x_continuous(breaks = c(4.5,12.5),
                      labels = c("Pre","Post"))
 p
+
 ggsave(width = 4.5, height = 4.5, "../results/fig_3.png")
 ```
 
@@ -381,6 +380,7 @@ p2$plot <- p2$plot + theme(text = element_text(family="serif"),
                          legend.key.size = unit(0.5, "cm")
 )
 
+#plot the data
 p <- plot_grid(p1$plot,p2$plot, 
                ncol = 2,
                labels = "AUTO",
@@ -389,6 +389,7 @@ p <- plot_grid(p1$plot,p2$plot,
                vjust = 1,
                label_fontfamily = "serif")
 p
+
 ggsave(file = "../results/fig_4.png", width = 8, height = 4)
 
 ```
@@ -400,7 +401,7 @@ fig6 <- read.csv(file = "../data/immuneInfiltrates_2_R.csv", header = TRUE)
 fig6_cd3 <- fig6[fig6$label == "cd3",]
 fig6_mac <- fig6[fig6$label == "mac387",]
 
-#remove outlier
+#remove outlier -- do not run; for testing effect of outlier
 #fig6_cd3 <- fig6_cd3[-4,]
 
 #plot the data
@@ -412,13 +413,10 @@ fig6_cd3 %>% group_by(status) %>% summarize(avg = mean(pct),
 
 
 p1 <- ggplot(data = fig6_cd3, aes(x=status, y = pct, fill = status )) + 
-  #geom_line(aes(group = patID),color = "black", size = 1) +
   stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), geom="errorbar",  width=0.2, size = 1) +
   stat_summary(shape=18, fun ="mean",color="black", geom="point", size=4, show.legend = FALSE) +
   geom_point(size=2, shape = 21, color = "black", position = position_jitterdodge(dodge.width=1, jitter.width = 0.25, seed = 2)) +
-  #geom_jitter(size=2, shape = 21, color = "black",width = 0.1) + 
   ggtitle("T cell infiltrates") + 
-  #geom_point(size=10, shape = 21, color = "black") +
   scale_fill_manual(values = colorz) +
   scale_x_discrete(label = c("Untreated","Vaccinated")) + 
   scale_y_continuous(limits = c(-125,800), breaks = c(0,200,400,600,800)) + 
@@ -442,7 +440,7 @@ p1 <- ggplot(data = fig6_cd3, aes(x=status, y = pct, fill = status )) +
     colour = "blue", family = "serif") +
   geom_hline(yintercept = 0,linetype="dashed")
 
-#remove outlier
+#remove outlier -- do not run; for testing effect of outlier
 #fig6_mac <- fig6_mac[-5,]
 
 test_val <- wilcox.test(pct ~ status, data = fig6_mac, paired = FALSE)
@@ -483,15 +481,17 @@ p2 <- ggplot(data = fig6_mac, aes(x=status, y = pct, fill = status, shape = stat
     colour = "blue", family = "serif") +
   geom_hline(yintercept = 0,linetype="dashed")
 
+#plot the data
 p <- plot_grid(p1,p2, 
                ncol = 2,
-               labels = "AUTO",
+               labels = c("A","C"),
                label_size = 14,
                rel_widths = c(1, 1),
                hjust = 0,
                vjust = 1,
                label_fontfamily = "serif")
 p
+
 ggsave(width = 6, height = 3,"../results/fig_5.png")
 ```
 
@@ -524,10 +524,11 @@ p <- ggplot(data = sup_1_cd44, aes(x = cellLine, y = val, fill = culture)) + geo
         legend.key.size = unit(0.5, "cm"),
         )
 p
+
 ggsave(width = 5, height = 4,"../results/sup_1.png")
 ```
 
-```{r Generate monolayer and humoral titer figures (Sup_2)}
+```{r Generate monolayer titer figures (Sup_2)}
 
 #prepare the data
 colorz_mono <- colorz[c(2,3,4,5)]
@@ -576,6 +577,13 @@ p1 <- ggplot(data = monoHumRes, aes(x=x, y = value, fill = patID )) +
                      labels = c("Pre","Post"),
                      limits = c(1,13))
 
+p1
+
+ggsave(width = 3, height = 4,"../results/sup_2.png")
+```
+
+```{r Generate humoral titer figures (Sup_5)}
+
 #read in data
 sup2b <- read.csv(file = "../data/220104_tp_titers_R.csv", header = TRUE)
 sup2b$titer <- as.numeric(sup2b$titer)
@@ -590,7 +598,6 @@ colorz_tp <- colorz[c(3,5,7,9,10)]
 p2 <- ggplot(data = sup2b, aes(x=x, y = titer, fill = patNum, color = patNum)) +
   geom_line(size = 1) + 
   geom_point(size=3, shape = 21, color = "black") +
-  #geom_jitter(size=5, shape = 21, color = "black", height = 0, width = 0.2) +
   labs(colour="Patient", fill ="Patient") +
   scale_y_continuous(trans = log2_trans(), limits = c(1024,524288), n.breaks = 12) +
   scale_x_continuous(limits = c(-0.5,15),breaks = c(0,3,6,9,12,15)) +
@@ -611,25 +618,14 @@ p2 <- ggplot(data = sup2b, aes(x=x, y = titer, fill = patNum, color = patNum)) +
         legend.key.size = unit(0.5, "cm")
         )
 
-p <- plot_grid(p1,p2, 
-               ncol = 2,
-               labels = "AUTO",
-               label_size = 14,
-               rel_widths = c(1, 2),
-               hjust = 0,
-               vjust = 1,
-               label_fontfamily = "serif")
-p
-ggsave(width = 10, height = 4,"../results/sup_2.png")
+ggsave(width = 6, height = 4,"../results/sup_5.png")
 ```
 
-```{r Generate objective response t-test (Sup_5)}
+```{r Generate objective response t-test (Sup_6)}
 
 test_val <- wilcox.test(peak_response_2 ~ as.character(hum), data = clinData, paired = FALSE)
 
 p <- ggplot(data = clinData, aes(x=as.character(hum), y = peak_response_2, fill = patNum )) + 
-  #geom_line(aes(group = patID),color = "black", size = 1) +
-  #geom_jitter(size=5, shape = 21, color = "black",width = 0.05) + 
   ggtitle("Objective Response") + 
   geom_point(size=3, shape = 21, color = "black") +
   scale_fill_manual(name = "Dog ID", values = colorz) +
@@ -662,7 +658,7 @@ p$layers[6] <- p$layers[1]
 p$layers[1] <- NULL
 p
 
-ggsave(width = 4.5, height = 4.5, "../results/sup_5.png")
+ggsave(width = 4.5, height = 4.5, "../results/sup_6.png")
 ```
 
 ```{r Univariate analysis (Sup_table_2_data)}
@@ -703,6 +699,7 @@ ggcoxzph(test.ph)
 
 #################################
 
+#run multiple univariate analysis
 covariates <- c("hum", "trial",  "rad", "grade", "breed", "sex_2")
 univ_formulas <- sapply(covariates,
                         function(x) as.formula(paste('Surv(timeWithdraw, status)~', x)))
@@ -710,7 +707,7 @@ univ_formulas <- sapply(covariates,
 
 univ_models <- lapply(univ_formulas, function(x){coxph(x, data = clinData)})
 
-# Extract data 
+#extract data 
 univ_results <- lapply(univ_models,
                        function(x){ 
                                 x <- summary(x)
@@ -731,6 +728,8 @@ univ_results <- lapply(univ_models,
 
 res <- t(as.data.frame(univ_results, check.names = FALSE))
 cox_res <- as.data.frame(res)
+
+#export data for table
 write.csv(cox_res, file = "../results/test_data.csv")
 
 #####################################
@@ -742,7 +741,7 @@ univ_formulas <- sapply(covariates,
                         
 univ_models <- lapply(univ_formulas, function(x){survfit(x, data = clinData)})
 
-# Extract data 
+#extract data 
 univ_results <- lapply(univ_models,
                        function(x){
                                
@@ -750,6 +749,8 @@ univ_results <- lapply(univ_models,
                                res <- x$table[,c("records", "median")]
                         return(res)
                        })
+
+#export data for table
 write.csv(univ_results, file = "../results/med_n.csv")
 
 
@@ -767,8 +768,6 @@ surv_res
 #load in libraries for supplemental data analysis
 library(stringr)
 library(DESeq2)
-library(ggplot2)
-library(dplyr)
 library(tidyverse)
 library(ggrepel)
 library(ReactomePA)
@@ -791,28 +790,28 @@ rownames(nano) <- genes
 #convert to DEseq2 object
 #dds <- DESeqDataSetFromMatrix(countData = nano,
 #                              colData = meta,
-#                              design= ~ batch + status)
+#                              design= ~ batch + status) #-- do not run; here for testing purposes
 
 #dds <- DESeqDataSetFromMatrix(countData = nano,
 #                              colData = meta,
-#                              design= ~ batch + type)
+#                              design= ~ batch + type) #-- do not run; here for testing purposes
 
 dds <- DESeqDataSetFromMatrix(countData = nano,
                               colData = meta,
-                              design= ~ batch + grade)
+                              design= ~ batch + grade) #formula used for manuscript
 
 #dds <- DESeqDataSetFromMatrix(countData = nano,
 #                              colData = meta,
-#                              design= ~ batch + sex)
+#                              design= ~ batch + sex) #-- do not run; here for testing purposes
 
 dds <- DESeq(dds)
 
 
 resName <- resultsNames(dds)
-#res <- lapply(resName, function(x) results(dds, name = x))
+#res <- lapply(resName, function(x) results(dds, name = x)) #-- do not run
 res <- results(dds, name = resName[3])
-#res <- results(dds, name = resName[3], pAdjustMethod = "none", alpha = 0.05, lfcThreshold = 0.58)
-#lapply(res, summary)
+#res <- results(dds, name = resName[3], pAdjustMethod = "none", alpha = 0.05, lfcThreshold = 0.58) #-- do not run
+#lapply(res, summary) #-- do not run
 summary(res)
 res
 
@@ -830,6 +829,7 @@ summary(res)
 plot <- as.data.frame(resLFC)
 plot$gene <- rownames(plot)
 
+#get sig results
 res_table_thres <- plot %>% 
                   mutate(threshold = ifelse(padj < 0.1 & abs(log2FoldChange) >= 0.58, 
                                             ifelse(log2FoldChange > 0.58 ,'Up','Down'),'Stable'),
@@ -838,6 +838,7 @@ res_table_thres <- plot %>%
 
 res_table_thres <- res_table_thres[!is.na(res_table_thres$padj),]
 
+#plot the data
 p <- ggplot(data = res_table_thres, 
             aes(x = log2FoldChange, 
                 y = -log10(padj), 
@@ -858,9 +859,9 @@ p <- ggplot(data = res_table_thres,
         legend.title = element_blank())
 p
 
-ggsave(width = 8, height = 5, "../results/sup_6a.png")
+ggsave(width = 8, height = 5, "../results/sup_7a.png")
 
-
+#extract upregaulted features for pathway analysis
 resOrdered <- res[order(res$pvalue),]
 
 resFilter<- as.data.frame(subset(res, padj < 0.1))
@@ -880,11 +881,100 @@ G_list <- read.csv(file = "../data/geneList.csv", header = TRUE)
 pathAnalysis <- enrichPathway(gene = unique(G_list$entrezgene_id), pvalueCutoff = 0.05)
 p <- dotplot(pathAnalysis)
 p
-ggsave(width = 10, height = 5, "../results/sup_6b.png")
+
+pathsUpWdeseq <- pathAnalysis@result$Description[1:8]
+ggsave(width = 10, height = 5, "../results/sup_7b.png")
+```
+
+
+```{r alternative nanoString analysis to confirm conclusions}
+
+library(broom)
+library(readr)
+library(ggpubr)
+
+#read in data
+nano <- read.csv("../data/Normalized_n18_batched.csv")
+meta <- read.csv("../data/meta.csv")
+
+#clean data
+genes <- nano[,1]
+nano <- nano[,c(11:20,22:29)]
+
+nano <- as.data.frame(lapply(nano, as.integer))
+meta <- as.data.frame(lapply(meta, as.factor))
+rownames(nano) <- genes
+nano <- tibble::rownames_to_column(nano, "gene")
+colnames(nano) <- c("gene",as.character(meta$name))
+nano <- melt(nano)
+nano$value <- as.numeric((nano$value))
+nano <- nano %>% left_join(meta[c("name","status","sex","grade")],by = c("variable" = "name"))
+
+#check normality -- not normally distibuted
+normal_test_data <- nano %>%
+  dplyr::group_by(gene) %>% 
+  do(tidy(shapiro.test(.$value)))
+
+
+normally_distributed <- normal_test_data %>%
+  filter(p.value > 0.05)
+
+
+not_normal_distribution <- normal_test_data %>%
+  filter(p.value < 0.05) %>%
+  dplyr::select(gene)
+
+#run wilcox test
+if (nrow(not_normal_distribution) > 0) {
+  data_for_Wilcox <- left_join(not_normal_distribution, nano) 
+  
+  significant_Wilcox <- data_for_Wilcox %>%
+    group_by(gene) %>% 
+    do(tidy(wilcox.test(.$value~.$grade,exact=FALSE))) %>%
+    filter(p.value < 0.05)
+}
+  
+directionChange <- data_for_Wilcox %>%
+  group_by(gene,grade) %>% summarize(avgVal = mean(value))
+
+#extract genes up in high grade
+directionChange <- directionChange[directionChange$gene %in% significant_Wilcox$gene,]
+directionChange <- directionChange %>% spread(key = grade, value = avgVal) %>% mutate(directionChange = bhigh/alow)
+upFeats <- directionChange[directionChange$directionChange >1,]
+
+#compile for plot
+wilcox_for_plot <- left_join(significant_Wilcox, nano)
+
+#plot the data
+p <- ggplot(wilcox_for_plot, aes(grade, value)) +
+  geom_boxplot(aes(color = gene)) +
+  facet_wrap(~gene, scales = "free") +
+  stat_compare_means(method = "wilcox.test") +
+  ggtitle("Significantly Different Genes (Non-Normal Data)") +
+  ylab("Gene Expression") +
+  theme(legend.position = "none")
+
+p
+
+#complete pathway analysis for genes up in high grade
+mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl"))
+G_list <- getBM(filters = "hgnc_symbol", attributes = c("ensembl_gene_id", "entrezgene_id", "external_gene_name", "description"), values = upFeats$gene, mart = mart)
+G_list <- G_list[!duplicated(G_list$entrezgene_id),]
+
+pathAnalysis <- enrichPathway(gene = unique(G_list$entrezgene_id), pvalueCutoff = 0.05)
+p <- dotplot(pathAnalysis)
+p
+
+#list upregualted pathways
+pathAnalysis@result$Description[1:28]
+
+#check which pathways overlap with those idenitified using DEseq2
+pathsUpWdeseq[pathsUpWdeseq %in% pathAnalysis@result$Description[1:28]]
 ```
 
 ```{r Immune density analysis by tumor grade (sup_fig_7)}
 
+#load in data
 fig_sup_7 <- read.csv(file = "../data/immuneInfiltrates_2_R.csv", header = TRUE)
 fig_sup_7 <- fig_sup_7 %>% left_join(meta, by = c("id" = "f_id"))
 fig7_sup_cd3 <- fig_sup_7[fig_sup_7$label == "cd3",]
@@ -967,6 +1057,7 @@ p <- plot_grid(p1,p2,
                vjust = 1,
                label_fontfamily = "serif")
 p
-ggsave(width = 6, height = 3,"../results/sup_7.png")
+
+ggsave(width = 6, height = 3,"../results/sup_8.png")
 
 ```
